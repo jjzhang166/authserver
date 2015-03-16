@@ -23,7 +23,7 @@ int main()
 	int i = 0;
 	while(i++ < 10000)
 	{
-		RequestPDU_t req = {20, T_ZERO, S_AUTH_REQUEST,(u_char)i, C_MOBILE_STATION, "12345678"};
+		RequestPDU_t req = {20, T_ZERO, S_AUTH_REQUEST,(u_char)i, C_MOBILE_STATION, "123456"};
 		printf("len=%d T=%d pin=%s\n",req.Len, req.T,  req.Pin);
 		char buf[AUTH_PDU_LEN];
 		build_RequestPDU(&req, buf);

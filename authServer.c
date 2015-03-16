@@ -20,8 +20,6 @@ int facility = 0;
 #include<apu.h>
 #include<apr_pools.h>
 #include<apr_dbd.h>	
-apr_pool_t *pool = NULL;
-const apr_dbd_driver_t *driver = NULL;
 
 const char name[64] = "mysql";		/*数据库驱动程序名*/
 const char params[128] = "host=localhost;user=root;pass=123456;dbname=terminal";
@@ -29,7 +27,7 @@ int dbd_check_pin(const char *pin);
 void *handle_tcp_thread(void *args); /*处理一个连接的线程函数*/
 void *handle_session_thread(void *args);/*处理一个认证的线程， 一个连接上有多个认证*/
 
-#define MAX_THREADS 50
+#define MAX_THREADS 100
 sem_t sem;
 
 void sig_fun(int sig)
@@ -57,13 +55,11 @@ int main()
 	/*注册信号处理函数*/
 	signal(SIGINT, sig_fun);
 
+	/* 初始化用于线程数控制的信号量*/
 	sem_init(&sem, 0, MAX_THREADS);
-	/*连接数据库*/
-	if(init_dbd() != OPSUCCESS)
-	{
-		syslog(LOG_INFO, "Connect database failed!\n");
-		exit(-1);
-	}
+
+	/*初始化apr库*/
+    apr_initialize();
 	
 	//1.创建socket	
 	serfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -233,8 +229,6 @@ void *handle_tcp_thread(void *args)
  * args 中有要处理的任务
  * 线程结束后释放session
  */
- int test_pselect(apr_pool_t* pool, apr_dbd_t* handle,
-                        const apr_dbd_driver_t* driver);
 void *handle_session_thread(void *args)
 {
 	char pin[9];
@@ -257,53 +251,13 @@ void *handle_session_thread(void *args)
 	return NULL;
 }
 
-
-/*初始化数据库*/
-int init_dbd()
-{
-    int rv;
-    apr_initialize();
-    apr_pool_create(&pool, NULL);
-
-    
-        apr_dbd_init(pool);
-        setbuf(stdout,NULL);
-        rv = apr_dbd_get_driver(pool, name, &driver);
-        switch (rv) {
-        case APR_SUCCESS:
-           printf("Loaded %s driver OK.\n", name);
-           break;
-        case APR_EDSOOPEN:
-           printf("Failed to load driver file apr_dbd_%s.so\n", name);
-           goto finish;
-        case APR_ESYMNOTFOUND:
-           printf("Failed to load driver apr_dbd_%s_driver.\n", name);
-           goto finish;
-        case APR_ENOTIMPL:
-           printf("No driver available for %s.\n", name);
-           goto finish;
-        default:        /* it's a bug if none of the above happen */
-           printf("Internal error loading %s.\n", name);
-           goto finish;
-        }
-
-	return OPSUCCESS;
-	finish:
-		apr_pool_destroy(pool);
-		apr_terminate();
-		return OPFAIL;
-}
-void stop_dbd()
-{
-	apr_pool_destroy(pool);
-    apr_terminate();
-}
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+/* 检测PIN 
+ * 成功返回OPSUCCESS
+ * 失败返回OPFAIL
+ */
 int dbd_check_pin(const char *pin)
 {	
 
-    apr_dbd_t *sql = NULL;
     int rv = 0;
     int i = 0;
     int n;
@@ -311,32 +265,55 @@ int dbd_check_pin(const char *pin)
     char statement[128] = "SELECT * FROM terminals where Pin='";
     apr_dbd_results_t *res = NULL;
     apr_dbd_row_t *row = NULL;
-
-     strcat(statement,pin);
-      strcat(statement,"'");
-	rv = apr_dbd_open(driver, pool, params, &sql);
+	apr_pool_t *respool  = NULL;
+	apr_dbd_t *sql = NULL;
+	const apr_dbd_driver_t *driver = NULL;
+	
+    strcat(statement,pin);
+    strcat(statement,"'");
+    rv = apr_pool_create(&respool, NULL);
+	if(rv != APR_SUCCESS)
+		goto finish;
+    apr_dbd_init(respool);
+    rv = apr_dbd_get_driver(respool, name, &driver);
+	switch (rv) {
+       	case APR_SUCCESS:
+       		printf("Loaded %s driver OK.\n", name);
+          	break;
+        case APR_EDSOOPEN:
+           printf("Failed to load driver file apr_dbd_%s.so\n", name);
+           goto finish2;
+        case APR_ESYMNOTFOUND:
+           printf("Failed to load driver apr_dbd_%s_driver.\n", name);
+           goto finish2;
+        case APR_ENOTIMPL:
+           printf("No driver available for %s.\n", name);
+           goto finish2;
+        default:        /* it's a bug if none of the above happen */
+           printf("Internal error loading %s.\n", name);
+           goto finish2;
+        }
+	rv = apr_dbd_open(driver, respool, params, &sql);
     switch (rv) {
         case APR_SUCCESS:
            printf("Opened %s[%s] OK\n", name, params);
            break;
         case APR_EGENERAL:
            printf("Failed to open %s[%s]\n", name, params);
-           goto finish;
+           goto finish2;
         default:        /* it's a bug if none of the above happen */
            printf("Internal error opening %s[%s]\n", name, params);
-           goto finish;
+           goto finish2;
         }
 
-//	pthread_mutex_lock(&mutex);
-    rv = apr_dbd_select(driver,pool,sql,&res,statement,0);
-//	pthread_mutex_unlock(&mutex);	
+    rv = apr_dbd_select(driver,respool,sql,&res,statement,0);
     if (rv) {
         printf("Select failed: %s", apr_dbd_error(driver, sql, rv));
         goto finish2;
     }
- /*   for (rv = apr_dbd_get_row(driver, pool, res, &row, -1);
+    for (rv = apr_dbd_get_row(driver, respool, res, &row, -1);
          rv == 0;
-         rv = apr_dbd_get_row(driver, pool, res, &row, -1)) {
+         rv = apr_dbd_get_row(driver, respool, res, &row, -1)) {
         printf("ROW %d:	", ++i) ;
         for (n = 0; n < apr_dbd_num_cols(driver, res); ++n) {
             entry = apr_dbd_get_entry(driver, row, n);
@@ -348,15 +325,14 @@ int dbd_check_pin(const char *pin)
             }
         }
 	fputs("\n", stdout);
-    }*/
+    }
 	finish2:
-	//	apr_dbd_close(driver, sql);
-	finish: ;	
-		//pthread_mutex_unlock(&mutex);	
+		apr_dbd_close(driver, sql);
+		apr_pool_destroy(respool);
+	finish: ;		
 	if(i>0)
 		return OPSUCCESS;
 	else
 		return OPFAIL;
 }
-
 
