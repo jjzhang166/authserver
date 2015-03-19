@@ -8,6 +8,7 @@ typedef unsigned short u_short;
 #define T_FREQ_KERNEL	  0x02  /*频管与核心*/
 #define T_FREQ_NETMANAGER 0x03  /*频管与网管*/
 /* S字段 */
+#define S_ZERO			  0x00
 #define S_AUTH_REQUEST 	  0x01	/* 认证请求 上行*/
 #define S_AUTH_REPLY	  0x02  /* 认证应答 下行*/
 #define S_AUTH_FINISH	  0x03  /* 认证完成 上行*/
@@ -61,7 +62,7 @@ typedef struct ReplyPDU
 }ReplyPDU_t;
 
 
-
+#define ACCINFO_PDU_LEN 34
 typedef struct AccessInfo
 {
 	u_int Len;			/*长度20*/
@@ -76,17 +77,41 @@ typedef struct AccessInfo
 	char BS_IP[16];		/*基站设备IP*/
 }AccessInfo_t;
 
+/* 心跳 */
+#define HEART_BEAT_PDU_LEN 16
+typedef struct HeartBeatPDU
+{
+	u_int Len;
+	u_char T;
+	u_char S;
+	u_char body[10];
+}HeartBeatPDU_t;
+
+
 /* 只解析 前三项，用于初始协议区分 */
 int parse_MsgPDU(MsgPDU_t *msg, u_char *buf, u_int  len);
 
 /*解析认证请求数据包*/
-void parse_RequestPDU(RequestPDU_t *req, const u_char *buf);
+int parse_RequestPDU(RequestPDU_t *req, const u_char *buf);
 
 /*生成认证请求数据包*/
-void build_RequestPDU(const RequestPDU_t *req, u_char *buf);
+int build_RequestPDU(const RequestPDU_t *req, u_char *buf);
 
 /*解析认证应答数据包*/
-void parse_ReplyPDU(ReplyPDU_t *rep, const u_char *buf);
+int parse_ReplyPDU(ReplyPDU_t *rep, const u_char *buf);
 
 /*生成认证应答数据包*/
-void build_ReplyPDU(const ReplyPDU_t *rep, u_char *buf);
+int build_ReplyPDU(const ReplyPDU_t *rep, u_char *buf);
+
+/*解析心跳数据包*/
+int parse_HeartBeatPDU(HeartBeatPDU_t *hbt, const u_char *buf);
+
+/*生成心跳数据包*/
+int build_HeartBeatPDU(const HeartBeatPDU_t *hbt,  u_char *buf);
+
+/*解析接入信息*/
+int parse_AccessInfo(AccessInfo_t *acci, const u_char *buf);
+
+/*生成接入信息*/
+int build_AccessInfo(const AccessInfo_t *acci, u_char *buf);
+
