@@ -20,9 +20,11 @@ int facility = 0;
 #include<apu.h>
 #include<apr_pools.h>
 #include<apr_dbd.h>	
-const char name[64] = "mysql";			 /*数据库驱动程序名*/
-const char params[128] = "host=localhost;user=root;pass=123456;dbname=terminal";
+char name[64] = "mysql";			 /*数据库驱动程序名*/
+char params[256] = "host=localhost;user=root;pass=123456;dbname=terminal";
 
+/*是否成为守护进程*/
+int beDeamon = 1;
 
 int dbd_check_pin(const char *pin);		 /* 检测pin 码的正确性 */
 void *handle_tcp_thread(void *args); 	 /*处理一个连接的线程函数*/
@@ -45,10 +47,36 @@ void sig_fun(int sig)
  
 	exit(0);
 }
+
+/* 守护进程 */
+void become_deamon()
+{
+	int i;
+	pid_t pid;
+	if(!beDeamon)
+		return;
+    pid = fork();
+	if(pid < 0)
+	{
+		syslog(LOG_INFO, "Fork 失败， 创建守护进程失败!\n");
+		return;
+	}
+	else if(pid > 0)
+			exit(0);
+	setsid();
+	chdir("/");
+	umask(0);
+	for(i = 0; i < 3; i++)
+		close(i);
+}
+
 int main()
 {
 	struct sockaddr_in seraddr;
 	int serfd;
+
+	/* 守护进程 */
+	become_deamon();
 	
 	/*打开日志*/
 	openlog(ident, option, facility);
