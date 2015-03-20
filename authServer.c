@@ -10,6 +10,7 @@
 #include "authProtocol.h"
 unsigned short PORT = 12345;	  //监听端口
 unsigned int MAX_TCP_QUEUE = 5;   //listen 的参数
+unsigned char IPADDR[17];
 #define BUF_SIZE 64     		  //本程序涉及心跳包16B, 认证包20B，接入信息包34B
 /*日志配置*/
 char ident[64] = "authServer";
@@ -20,8 +21,8 @@ int facility = 0;
 #include<apu.h>
 #include<apr_pools.h>
 #include<apr_dbd.h>	
-char name[64] = "mysql";			 /*数据库驱动程序名*/
-char params[256] = "host=localhost;user=root;pass=123456;dbname=terminal";
+char dbdriver[128] = "mysql";			 /*数据库驱动程序名*/
+char dbparams[256] = "host=localhost;user=root;pass=123456;dbname=terminal";
 
 /*是否成为守护进程*/
 int beDeamon = 1;
@@ -29,13 +30,24 @@ int beDeamon = 1;
 int dbd_check_pin(const char *pin);		 /* 检测pin 码的正确性 */
 void *handle_tcp_thread(void *args); 	 /*处理一个连接的线程函数*/
 void *handle_session_thread(void *args); /*处理一个认证的线程， 一个连接上有多个认证*/
+void read_config();
 
 #define MAX_THREADS 100
 sem_t sem;								/*控制线程数*/	
 
+int beStop = 0;  						/*要停止服务器吗*/
 void sig_fun(int sig)
 {
+	int i;
+	beStop = 1;
+	syslog(LOG_INFO, "认证服务器正在退出...\n");
+	sleep(4);
 	syslog(LOG_INFO, "认证服务器已经退出.\n");
+
+	closelog();
+	apr_terminate();
+	sem_destroy(&sem);
+
 /* 退出时的问题:
  * 数据库的资源未释放：pool driver
  * 日志未关闭
@@ -74,13 +86,16 @@ int main()
 {
 	struct sockaddr_in seraddr;
 	int serfd;
+	/*打开日志*/
+	openlog(ident, option, facility);
+
+	syslog(LOG_INFO, "认证服务器正在启动...\n");
+	/*read config file */
+	read_config();
 
 	/* 守护进程 */
 	become_deamon();
 	
-	/*打开日志*/
-	openlog(ident, option, facility);
-
 	/*注册信号处理函数*/
 	signal(SIGINT, sig_fun);
 
@@ -127,7 +142,7 @@ int main()
 
 	syslog(LOG_INFO, "认证服务器已经启动!.\n");
 	//6.开始接受TCP连接
-	while(1)
+	while(!beStop)
 	{
 		pthread_t tid;
 		//接受一个连接
@@ -231,7 +246,7 @@ void *handle_tcp_thread(void *args)
 	int sum = 0;
 	
 	syslog(LOG_INFO, "频管已经连接!\n");
-	while(1)
+	while(!beStop)
 	{	
 		MsgPDU_t msg;
 		int n = recv(clifd, buf + curn, BUF_SIZE-curn, 0);
@@ -294,7 +309,8 @@ void *handle_tcp_thread(void *args)
 	}
 
 	close(clifd);
-	syslog(LOG_INFO, "频管已断开连接!\n");
+	if(!beStop)
+		syslog(LOG_INFO, "频管已断开连接!\n");
 }
 
 /* 这是个线程函数
@@ -360,34 +376,34 @@ int dbd_check_pin(const char *pin)
 	if(rv != APR_SUCCESS)
 		goto finish;
     apr_dbd_init(respool);
-    rv = apr_dbd_get_driver(respool, name, &driver);
+    rv = apr_dbd_get_driver(respool, dbdriver, &driver);
 	switch (rv) {
        	case APR_SUCCESS:
        		//printf("Loaded %s driver OK.\n", name);
           	break;
         case APR_EDSOOPEN:
-           syslog(LOG_INFO,"Failed to load driver file apr_dbd_%s.so\n", name);
+           syslog(LOG_INFO,"Failed to load driver file apr_dbd_%s.so\n", dbdriver);
            goto finish;
         case APR_ESYMNOTFOUND:
-           syslog(LOG_INFO,"Failed to load driver apr_dbd_%s_driver.\n", name);
+           syslog(LOG_INFO,"Failed to load driver apr_dbd_%s_driver.\n", dbdriver);
            goto finish;
         case APR_ENOTIMPL:
-           syslog(LOG_INFO,"No driver available for %s.\n", name);
+           syslog(LOG_INFO,"No driver available for %s.\n", dbdriver);
            goto finish;
         default:        /* it's a bug if none of the above happen */
-           syslog(LOG_INFO,"Internal error loading %s.\n", name);
+           syslog(LOG_INFO,"Internal error loading %s.\n", dbdriver);
            goto finish;
         }
-	rv = apr_dbd_open(driver, respool, params, &sql);
+	rv = apr_dbd_open(driver, respool, dbparams, &sql);
     switch (rv) {
         case APR_SUCCESS:
            //printf("Opened %s[%s] OK\n", name, params);
            break;
         case APR_EGENERAL:
-           syslog(LOG_INFO,"Failed to open %s[%s]\n", name, params);
+           syslog(LOG_INFO,"Failed to open %s[%s]\n", dbdriver, dbparams);
            goto finish;
         default:        /* it's a bug if none of the above happen */
-           syslog(LOG_INFO,"Internal error opening %s[%s]\n", name, params);
+           syslog(LOG_INFO,"Internal error opening %s[%s]\n", dbdriver, dbparams);
            goto finish;
         }
 
@@ -424,3 +440,98 @@ int dbd_check_pin(const char *pin)
 		return OPFAIL;
 }
 
+
+/*读取配置文件 配置文件要放在/etc/authServer.conf*/
+char *config_file = "/etc/authServer.conf";
+void set_config_value(char *name, char *value)
+{
+	int name_len = strlen(name);
+	int value_len = strlen(value);
+
+	if(strcmp(name,"IPADDR") == 0)
+			strncpy(IPADDR,value,16);
+	else if(strcmp(name,"PORT") == 0)
+			PORT = atoi(value);
+	else if(strcmp(name, "TCP_QUEUE") == 0)
+			MAX_TCP_QUEUE = atoi(value);
+	else if(strcmp(name, "LOGIDENT") == 0)
+			strncpy(ident, value, 64);
+	else if(strcmp(name, "FACILITY") == 0)
+			facility = atoi(value);
+	else if(strcmp(name, "DBDRIVER") == 0)
+			strncpy(dbdriver, value, 256);
+	else if(strcmp(name, "DBPARAMS") == 0)
+			strncpy(dbparams, value, 256);
+	else if(strcmp(name, "BEDEAMON") == 0)
+			beDeamon = atoi(value);
+	else syslog(LOG_INFO,"Unknown name and value: %s %s\n", name, value);
+}
+/*读取配置文件*/
+void read_config()
+{
+	char line[512];
+	FILE *fp = fopen(config_file, "r");
+	if(fp == NULL)
+	{
+		syslog(LOG_INFO,"读取配置文件失败！请把配置文件放在/etc/authServer.conf\n");
+		return;
+	}
+
+	while(fgets(line, 512, fp) != NULL)
+	{
+		int len = strlen(line);
+		char *ns, *vs, *p;
+		int i = 0;
+		if(line[len-1] != '\n')
+			while(fgetc(fp)!='\n');
+		//printf("%s", line);
+
+		/* 找到变量名的起点 */
+		for(i = 0; i < len; i++)
+			if(line[i] !=' ' && line[i]!= '\t' && line[i]!='\r'&& line[i]!='\n')
+				break;
+		if(i < len)
+			ns = &line[i];
+		else
+			continue;
+		/* 找到变量名的终点 */
+		for(i = i+1; i < len; i++)
+			if(line[i] == ' ' || line[i] == '\t' || line[i]=='\r' || line[i] == '\n')
+				break;
+		if(i<len)
+			 line[i] = '\0';
+		else
+			continue;
+		/* 找到变量值的起点 */
+		for(i = i+1; i < len; i++)
+			if(line[i] !=' ' && line[i]!= '\t' && line[i]!='\r' && line[i]!='\n')
+				break;
+		if(i < len)
+			vs = &line[i];
+		else
+			continue;
+		/* 找到变量值的终点 */
+		for(i = i+1; i < len; i++)
+			if(line[i] == ' ' || line[i] == '\t' || line[i]=='\r' ||  line[i] == '\n')
+				break;
+		if(i<len)
+				line[i] = '\0';
+		else
+			continue;
+
+		if(strlen(ns)<=0 || strlen(vs)<=0)
+			continue;
+		if(*ns=='#')  //注释
+			continue;
+		/*把变量名变为的大写*/
+		p = ns;
+		while(*p != '\0')
+		{
+			if(*p>='a' && *p<='z')
+				*p -= 32;
+			p++;
+		}
+		set_config_value(ns, vs);
+	}
+	syslog(LOG_INFO,"读取配置文件(%s)成功\n", config_file);
+}
