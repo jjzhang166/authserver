@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -31,6 +32,7 @@ int dbd_check_pin(const char *pin);		 /* 检测pin 码的正确性 */
 void *handle_tcp_thread(void *args); 	 /*处理一个连接的线程函数*/
 void *handle_session_thread(void *args); /*处理一个认证的线程， 一个连接上有多个认证*/
 void read_config();
+void parse_cmd_line(int argc, char *argv[]);
 
 #define MAX_THREADS 100
 sem_t sem;								/*控制线程数*/	
@@ -41,10 +43,10 @@ void sig_fun(int sig)
 	int i;
 	beStop = 1;
 	syslog(LOG_INFO, "认证服务器正在退出...\n");
-	sleep(4);
-	syslog(LOG_INFO, "认证服务器已经退出.\n");
+	if(!beDeamon)
+		printf("认证服务器正在退出...\n");
+	sleep(3);
 
-	closelog();
 	apr_terminate();
 	sem_destroy(&sem);
 
@@ -56,7 +58,11 @@ void sig_fun(int sig)
  * 多个线程未退出
  * 可能有与数据库的连接还未关闭
  */
+	syslog(LOG_INFO, "认证服务器已经退出.\n");
+	if(!beDeamon)
+		printf("认证服务器已经退出\n");
  
+	closelog();
 	exit(0);
 }
 
@@ -82,17 +88,20 @@ void become_deamon()
 		close(i);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	struct sockaddr_in seraddr;
 	int serfd;
 	/*打开日志*/
 	openlog(ident, option, facility);
 
+	printf( "认证服务器正在启动...\n");
 	syslog(LOG_INFO, "认证服务器正在启动...\n");
 	/*read config file */
 	read_config();
-
+	
+	/* handle command lines */
+	parse_cmd_line(argc, argv);
 	/* 守护进程 */
 	become_deamon();
 	
@@ -140,7 +149,9 @@ int main()
 		return -1;
 	}
 
-	syslog(LOG_INFO, "认证服务器已经启动!.\n");
+	syslog(LOG_INFO, "认证服务器已经启动.\n");
+	if(!beDeamon)
+		printf("认证服务器已经启动!\n");
 	//6.开始接受TCP连接
 	while(!beStop)
 	{
@@ -267,6 +278,7 @@ void *handle_tcp_thread(void *args)
 			if(msg.Len > BUF_SIZE)
 			{
 				curn = 0; /*信息长度大于缓冲，清除缓冲*/
+				syslog(LOG_INFO, "error packet, Len not right!\n");
 				break;
 			}
 			/*接受到一个完整的包*/
@@ -442,7 +454,7 @@ int dbd_check_pin(const char *pin)
 
 
 /*读取配置文件 配置文件要放在/etc/authServer.conf*/
-char *config_file = "/etc/authServer.conf";
+const char *config_file = "/etc/authServer.conf";
 void set_config_value(char *name, char *value)
 {
 	int name_len = strlen(name);
@@ -471,6 +483,7 @@ void read_config()
 {
 	char line[512];
 	FILE *fp = fopen(config_file, "r");
+	int t;
 	if(fp == NULL)
 	{
 		syslog(LOG_INFO,"读取配置文件失败！请把配置文件放在/etc/authServer.conf\n");
@@ -511,9 +524,13 @@ void read_config()
 		else
 			continue;
 		/* 找到变量值的终点 */
-		for(i = i+1; i < len; i++)
+		t = i;
+		for(i = len-1; i > t; i--)
 			if(line[i] == ' ' || line[i] == '\t' || line[i]=='\r' ||  line[i] == '\n')
+			;
+			else
 				break;
+		i++;
 		if(i<len)
 				line[i] = '\0';
 		else
@@ -534,4 +551,50 @@ void read_config()
 		set_config_value(ns, vs);
 	}
 	syslog(LOG_INFO,"读取配置文件(%s)成功\n", config_file);
+}
+
+void usage()
+{
+	printf("Welcom to use authServer...\n");
+	printf("-h print this usage.\n");
+	printf("-f don't become a deamon.\n");
+	printf("-i server's listen ip address.\n");
+	printf("-p server's listen port.\n");
+	printf("-d database's driver. such as mysql\n");
+	printf("-m database's params. such as host=localhost;user=root;pass=123456;dbname=terminal\n");  
+	printf("--config file is %s\n", config_file);
+	printf("\n");
+}
+void parse_cmd_line(int argc, char *argv[])
+{
+	int ch, opterr = 0;
+	char *cmd="i:p:d:m::hf";
+	while((ch = getopt(argc, argv, cmd)) != -1)
+	{
+		switch(ch)
+		{
+			case 'h':
+				usage();
+				exit(-1);
+				break;
+			case 'f':
+				beDeamon = 0;
+				break;
+			case 'p':
+				PORT = atoi(optarg);
+				break;
+			case 'd':
+				strncpy(dbdriver, optarg, 128);
+				break;
+			case 'm' :
+				strncpy(dbparams, optarg, 256);
+				break;
+			case 'i' :
+				strncpy(IPADDR, optarg, 16);
+				break;
+			default:
+				printf(" try -h to see help.\n", ch);	
+				exit(-1);
+		}
+	}
 }
