@@ -9,7 +9,7 @@ extern unsigned int MAX_TCP_QUEUE;   //listen 的参数
 extern char IPADDR[17];
 
 /*是否成为守护进程*/
-extern int beDeamon;
+extern int beDaemon;
 
 /*日志配置*/
 extern char ident[64];
@@ -22,9 +22,9 @@ extern char dbparams[256];
 
 
 /*读取配置文件 配置文件要放在/etc/authServer.conf*/
-void set_config_value(char *name, char *value);
+int set_config_value(char *name, char *value);
 
 /*读取配置文件*/
-void read_config();
+int read_config();
 
 #endif

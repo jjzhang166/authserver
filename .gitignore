@@ -1,5 +1,5 @@
 *.[oa]
-authServer
+nm_fremd
 authClient
 tags
 apr-1.5.1.tar.gz

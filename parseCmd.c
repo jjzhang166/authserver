@@ -11,7 +11,7 @@ void usage()
 {
 	printf("Welcom to use authServer...\n");
 	printf("-h print this usage.\n");
-	printf("-f don't become a deamon.\n");
+	printf("-f don't become a daemon.\n");
 	printf("-i server's listen ip address.\n");
 	printf("-p server's listen port.\n");
 	printf("-d database's driver. such as mysql\n");
@@ -33,7 +33,7 @@ void parse_cmd_line(int argc, char *argv[])
 				exit(-1);
 				break;
 			case 'f':
-				beDeamon = 0;
+				beDaemon = 0;
 				break;
 			case 'p':
 				PORT = atoi(optarg);

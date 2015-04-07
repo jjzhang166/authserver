@@ -26,6 +26,7 @@
 
 #define PIN_LEN 8      			  //PIN码8位
 
+
 sem_t sem;								/*控制线程数*/	
 
 int beStop = 0;  						/*要停止服务器吗*/
@@ -33,14 +34,12 @@ int beStop = 0;  						/*要停止服务器吗*/
 int dbd_check_pin(const char *pin);		 /* 检测pin 码的正确性 */
 void *handle_tcp_thread(void *args); 	 /*处理一个连接的线程函数*/
 void *handle_session_thread(void *args); /*处理一个认证的线程， 一个连接上有多个认证*/
-void read_config();
-void parse_cmd_line(int argc, char *argv[]);
 
 void sig_fun(int sig)
 {
 	beStop = 1;
 	syslog(LOG_INFO, "认证服务器正在退出...\n");
-	if(!beDeamon)
+	if(!beDaemon)
 		printf("认证服务器正在退出...\n");
 	sleep(3);
 
@@ -56,7 +55,7 @@ void sig_fun(int sig)
  * 可能有与数据库的连接还未关闭
  */
 	syslog(LOG_INFO, "认证服务器已经退出.\n");
-	if(!beDeamon)
+	if(!beDaemon)
 		printf("认证服务器已经退出\n");
  
 	closelog();
@@ -64,11 +63,11 @@ void sig_fun(int sig)
 }
 
 /* 守护进程 */
-void become_deamon()
+void become_daemon()
 {
 	int i;
 	pid_t pid;
-	if(!beDeamon)
+	if(!beDaemon)
 		return;
     pid = fork();
 	if(pid < 0)
@@ -93,14 +92,18 @@ int main(int argc, char *argv[])
 	printf( "认证服务器正在启动...\n");
 
 	/*read config file */
-	read_config();
+	if(read_config() == -1)
+	{
+		printf("Read config file failed!\n");
+		exit(-1);
+	}
 	/* handle command lines */
 	parse_cmd_line(argc, argv);
 
 	/*打开日志*/
 	openlog(ident, option, facility<<3);
 	/* 守护进程 */
-	become_deamon();
+	become_daemon();
 	
 	/*注册信号处理函数*/
 	signal(SIGINT, sig_fun);
@@ -147,7 +150,7 @@ int main(int argc, char *argv[])
 	}
 
 	syslog(LOG_INFO, "认证服务器已经启动.\n");
-	if(!beDeamon)
+	if(!beDaemon)
 		printf("认证服务器已经启动!\n");
 	//6.开始接受TCP连接
 	while(!beStop)
