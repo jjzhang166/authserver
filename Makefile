@@ -1,12 +1,17 @@
-target=authServer
-OBJS=authServer.o authProtocol.o
-CFLAGS=-g -I/usr/local/include/apr-1  -D_LARGEFILE64_SOURCE
+target=authServerd
+OBJS=$(target).o authProtocol.o readConfig.o parseCmd.o
+CFLAGS=-g -I/usr/local/include/apr-1  -D_LARGEFILE64_SOURCE -Wall
 LIBS=-lpthread /usr/local/lib/libaprutil-1.so  /usr/local/lib/libapr-1.so   -Wl,-rpath=/usr/local/lib
 CC=gcc
 all:$(target) authClient
-authServer:$(OBJS)
+$(target):$(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $(target)
 authClient:authProtocol.o authClient.o
 	$(CC) $(CFLAGS) authProtocol.o authClient.o $(LIBS) -o authClient
+%.o:%.c
+	$(CC) -c $(CFLAGS) $< -o $@
+ins:
+	cp authServerd /usr/local/bin
+	cp authServerd.conf /etc/
 clean:
-	rm $(OBJS) $(target)
+	rm -rf $(OBJS) $(target) authClient authClient.o

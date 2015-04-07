@@ -1,0 +1,26 @@
+#!/bin/bash
+tar -xvf apr-1.5.1.tar.gz
+tar -xvf apr-util-1.5.4.tar.gz
+#configure make and install apr
+cd apr-1.5.1
+./configure --prefix=/usr/local
+make clean
+make
+make install
+cd ..
+
+#configure make and install apr-util
+cd apr-util-1.5.4
+./configure --prefix=/usr/local --with-apr=/usr/local --with-mysql
+make
+make install
+cd ..
+
+#make and install authServer
+make clean
+make
+make ins
+
+rm -rf apr-util-1.5.4 apr-1.5.1
+echo install finished
+

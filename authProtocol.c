@@ -1,5 +1,7 @@
-#include "authProtocol.h"
 #include <memory.h>
+
+#include "authProtocol.h"
+
 
 /* 只解析 前三项，用于初始协议区分 */
 int parse_MsgPDU(MsgPDU_t *msg, u_char *buf, u_int  len)

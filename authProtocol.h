@@ -1,12 +1,20 @@
+#ifndef __AUTH_PROTOCOL__
+#define __AUTH_PROTOCOL__ 
+
 #include<stdio.h>
+
+
 typedef unsigned char u_char;
 typedef unsigned int u_int;
 typedef unsigned short u_short;
+
+
 /* T字段 */
 #define T_ZERO			  0x00
 #define T_FREQ_BASE 	  0x01  /*频管与基站*/
 #define T_FREQ_KERNEL	  0x02  /*频管与核心*/
 #define T_FREQ_NETMANAGER 0x03  /*频管与网管*/
+
 /* S字段 */
 #define S_ZERO			  0x00
 #define S_AUTH_REQUEST 	  0x01	/* 认证请求 上行*/
@@ -73,7 +81,7 @@ typedef struct AccessInfo
 	u_short MN;			/*短波移动终端号码*/
 	u_char FREQ;		/*业务信道号*/
 	u_char SNR;			/*链路质量 */
-	char Reserve[6];	/*保留*/
+	char Reserve[6];		/*保留*/
 	char BS_IP[16];		/*基站设备IP*/
 }AccessInfo_t;
 
@@ -114,4 +122,4 @@ int parse_AccessInfo(AccessInfo_t *acci, const u_char *buf);
 
 /*生成接入信息*/
 int build_AccessInfo(const AccessInfo_t *acci, u_char *buf);
-
+#endif /* __AUTH_PROTOCOL__ */
