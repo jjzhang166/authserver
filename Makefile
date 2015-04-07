@@ -10,7 +10,7 @@ authClient:authProtocol.o authClient.o
 	$(CC) $(CFLAGS) authProtocol.o authClient.o $(LIBS) -o authClient
 %.o:%.c
 	$(CC) -c $(CFLAGS) $< -o $@
-ins:
+install:
 	cp $(target) /usr/local/bin
 	cp $(target).conf /etc/
 clean:

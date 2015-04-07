@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
+#include <stdlib.h>
 
 #define BUF_SIZE 64
 #define PORT 12345
@@ -36,7 +38,7 @@ int main(int argc, char *argv[])
 		printf("usage: ./authClient 5 ipaddr\n");
 		return -1;
 	}
-
+	srand(time(0));
 	tests = atoi(argv[1]);
 	if(argc>=3)
 		serip = argv[2];
@@ -84,7 +86,8 @@ int main(int argc, char *argv[])
 		build_RequestPDU(&req, buf);
 		send(fd, buf, AUTH_PDU_LEN,0);
 		unsigned char *buf2 = malloc(AUTH_PDU_LEN);
-		buf2[0] = 0xff;	
+		//for(i = 0; i < AUTH_PDU_LEN; i++)
+		//	buf2[i] = 0xff;	
 		send(fd, buf2, AUTH_PDU_LEN,0);
 		free(buf2);
 		//usleep(10000);

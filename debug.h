@@ -9,5 +9,5 @@
 #else
 #define DEBUGMSG(x)
 #endif
-
+void debugmsg(const char *format, ...);
 #endif

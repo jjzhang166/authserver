@@ -19,7 +19,7 @@ cd ..
 #make and install authServer
 make clean
 make
-make ins
+make install
 
 rm -rf apr-util-1.5.4 apr-1.5.1
 echo install finished

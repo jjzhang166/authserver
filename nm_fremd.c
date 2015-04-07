@@ -18,6 +18,7 @@
 #include "authProtocol.h"
 #include "parseCmd.h"
 #include "readConfig.h"
+#include "debug.h"
 /**多线程服务器说明：第个线程函数要主动调用
  * pthread_detach(pthread_self()); 函数
  */
@@ -163,7 +164,7 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR,"accept failed!\n");
 			continue;
 		}
-		//printf("Accet a client!\n");
+		DEBUGMSG(("Accept a 频管!\n"));
 		
 	
 		//创建一个线程处理这个连接	clifd 将在创建的线程中关闭
@@ -260,7 +261,7 @@ void *handle_tcp_thread(void *args)
 		int n = recv(clifd, buf + curn, BUF_SIZE-curn, 0);
 		if(n<=0)
 		{
-			//printf("recv%d bytes breaked\n", n);
+			DEBUGMSG(("recv%d bytes breaked\n", n));
 			break;
 		}
 		sum+=n;
@@ -273,6 +274,7 @@ void *handle_tcp_thread(void *args)
 			if(msg.Len > BUF_SIZE || msg.Len <= 0)
 			{
 				//curn = 0; /*信息长度大于缓冲，清除缓冲*/
+				DEBUGMSG(("Bad packet Len: %d\n", msg.Len));
 				msg.Len = 1;
 				//syslog(LOG_INFO, "error packet, Len not right!\n");
 				goto finish;
@@ -340,8 +342,7 @@ void *handle_session_thread(void *args)
 	memset(&rep, 0, sizeof(rep));
 	struct session *sess = (struct session *)args;
 	RequestPDU_t *req = &sess->req;
-	//printf("len = %d  T = %d  S = %d  Seq = %d C = %d Pin = %s\n",
-	//		req->Len, req->T, req->S, req->Seq, req->C, req->Pin);
+	DEBUGMSG(("len = %d  T = %d  S = %d  Seq = %d C = %d Pin = %s\n",req->Len, req->T, req->S, req->Seq, req->C, req->Pin));
 	rep.Len = req->Len;
 	rep.S   = S_AUTH_REPLY;
 	rep.Seq = req->Seq;
