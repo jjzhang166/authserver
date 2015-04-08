@@ -182,10 +182,11 @@ struct session
 {
 	int clifd;  /*客户端socket*/
 	RequestPDU_t req;
+	pthread_mutex_t *writeMutex;
 };
 
 /* 处理认证请求 */
-void handle_request(int clifd, u_char *buf)
+void handle_request(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 {
 	pthread_t tid;
 	struct session * sess = (struct session*) malloc(sizeof(struct session));
@@ -196,6 +197,7 @@ void handle_request(int clifd, u_char *buf)
 	}
 					
 	sess->clifd = clifd;
+	sess->writeMutex = writeMutex;
 	if(parse_RequestPDU(&sess->req, buf) != OPSUCCESS)
 	{
 		syslog(LOG_ERR,"一个错误的认证请求包!\n");
@@ -251,7 +253,8 @@ void *handle_tcp_thread(void *args)
 	u_char buf[BUF_SIZE];
 	int curn = 0;
 	int sum = 0;
-	
+	//socket 在一个包的级别上要互斥
+	pthread_mutex_t socketWriteMutex = PTHREAD_MUTEX_INITIALIZER;	
 	//设置线程分离
 	pthread_detach(pthread_self());
 	syslog(LOG_INFO, "频管已经连接!\n");
@@ -296,7 +299,7 @@ void *handle_tcp_thread(void *args)
 						case S_AUTH_REQUEST:	//一个认证请求
 						{
 							
-							handle_request(clifd, buf);
+							handle_request(clifd, buf, &socketWriteMutex);
 							break;
 						}
 						case S_AUTH_FINISH:	//认证完成
@@ -322,6 +325,7 @@ void *handle_tcp_thread(void *args)
 	}
 
 	close(clifd);
+	pthread_mutex_destroy(&socketWriteMutex);
 	if(!beStop)
 		syslog(LOG_INFO, "频管已断开连接!\n");
 	return NULL;
@@ -335,6 +339,8 @@ void *handle_session_thread(void *args)
 {
 	char pin[9];
 	unsigned char buf[AUTH_PDU_LEN];
+	int rv;
+	int remain;
 	ReplyPDU_t rep;
 	//设置线程分离
 	pthread_detach(pthread_self());
@@ -362,7 +368,21 @@ void *handle_session_thread(void *args)
 		//syslog(LOG_INFO, "没有在数据库中找到匹配的PIN\n");
 	}
 	build_ReplyPDU(&rep, buf);
-	send(sess->clifd, buf, AUTH_PDU_LEN, 0);
+	pthread_mutex_lock(sess->writeMutex);
+	remain = AUTH_PDU_LEN;
+	while(remain > 0)
+	{
+		rv = send(sess->clifd, buf, remain, 0);
+		if(rv <= 0)
+		{
+			pthread_mutex_unlock(sess->writeMutex);
+			syslog(LOG_ERR, "send data failed, in handle session\n");
+			break;
+		}
+		remain -= rv;	
+	}
+
+	pthread_mutex_unlock(sess->writeMutex);
 	free(sess);
 	sem_post(&sem);
 	return NULL;

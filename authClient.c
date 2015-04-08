@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 		send(fd, buf, AUTH_PDU_LEN,0);
 		unsigned char *buf2 = malloc(AUTH_PDU_LEN);
 		//for(i = 0; i < AUTH_PDU_LEN; i++)
-		//	buf2[i] = 0xff;	
+			//buf2[0] = 45;	
 		send(fd, buf2, AUTH_PDU_LEN,0);
 		free(buf2);
 		//usleep(10000);
