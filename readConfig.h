@@ -1,6 +1,6 @@
 #ifndef __READCONFIG_H__
 #define __READCONFIG_H__
-
+extern int beStop;  						/*要停止服务器吗*/
 
 extern const char *config_file;	  //配置文件
 extern int MAX_THREADS;		  //最多线程数

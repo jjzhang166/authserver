@@ -1,5 +1,5 @@
 target=nm_fremd
-OBJS=$(target).o authProtocol.o readConfig.o parseCmd.o debug.o
+OBJS=$(target).o authProtocol.o readConfig.o parseCmd.o debug.o heartBeat.o
 CFLAGS=-g -I/usr/local/include/apr-1  -D_LARGEFILE64_SOURCE -Wall
 LIBS=-lpthread /usr/local/lib/libaprutil-1.so  /usr/local/lib/libapr-1.so   -Wl,-rpath=/usr/local/lib
 CC=gcc

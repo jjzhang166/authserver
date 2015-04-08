@@ -19,6 +19,7 @@
 #include "parseCmd.h"
 #include "readConfig.h"
 #include "debug.h"
+#include "heartBeat.h"
 /**多线程服务器说明：第个线程函数要主动调用
  * pthread_detach(pthread_self()); 函数
  */
@@ -27,16 +28,7 @@
 
 #define PIN_LEN 8      			  //PIN码8位
 
-//处理心跳
-#define HEART_CHECK_INTV 4
-#define HEART_INTV 2
-struct TcpStatus
-{
-	int alive;  //频管是否alive
-	time_t timeStamp;  //时间戳
-	int cnt;
-	pthread_mutex_t heartMutex;
-};
+
 
 sem_t sem;								/*控制线程数*/	
 
@@ -224,71 +216,7 @@ void handle_request(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 	}
 }
 
-struct TcpStatus *allocTcpStatus()
-{
-	struct TcpStatus *ts = (struct TcpStatus *)malloc(sizeof(struct TcpStatus));
-	if(ts == NULL)
-	{
-		syslog(LOG_ERR, "malloc failed in handle_tcp_thread\n");
-		DEBUGMSG(("malloc failed!\n"));
-		exit(-1);
-	}
-	ts->cnt = 2;
-	ts->alive = 1;
-	ts->timeStamp = time(NULL);
-	pthread_mutex_init(&ts->heartMutex, NULL);
-	return ts;
 
-}
-void destroyTcpStatus(struct TcpStatus *ts)
-{
-	int cnt;
-	pthread_mutex_lock(&ts->heartMutex);
-	cnt = --ts->cnt;	
-	pthread_mutex_lock(&ts->heartMutex);
-	if(cnt == 0)
-	{
-		pthread_mutex_unlock(&ts->heartMutex);
-		free(ts);
-	}
-}
-/** 心跳检测
- */
-void * check_heart_beat_thread(void *arg)
-{
-	struct TcpStatus *ts = (struct TcpStatus *)arg;
-	pthread_detach(pthread_self());
-	while(!beStop)
-	{
-		sleep(HEART_CHECK_INTV);
-		DEBUGMSG(("检测心跳.\n"));
-		if(time(NULL) - ts->timeStamp > HEART_INTV)
-		{
-			ts->alive = 0;
-			syslog(LOG_ERR, "No heart beat!\n");
-			DEBUGMSG(("no heart heat!\n"));
-			break;
-		}
-		ts->alive = 1;
-	}
-	destroyTcpStatus(ts);
-	return NULL;
-}
-/** 处理心跳
- */
-void handle_heart_beat(struct TcpStatus *ts, u_char *buf)
-{
-	HeartBeatPDU_t hbt;
-	if(parse_HeartBeatPDU(&hbt, buf) != OPSUCCESS)
-	{
-		syslog(LOG_INFO,"一个错误的心跳包!\n");
-		return;
-	}
-	ts->timeStamp = time(NULL);
-	syslog(LOG_INFO, "一个心跳包!\n");
-	DEBUGMSG(("心跳包.\n"));
-	/* 如果下面的操作可能阻塞，创建一个线程去做吧, 在创建线程前sem_wait(&sem); */
-}
 
 /* 处理接入信息
  */
