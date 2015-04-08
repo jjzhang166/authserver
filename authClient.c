@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 		free(buf2);
 		//usleep(10000);
 	}
-	sleep(100);
+	sleep(1000);
 	close(fd);
 	return 0;
 }
@@ -101,14 +101,21 @@ int main(int argc, char *argv[])
 void *do_heart_beat(void *args)
 {
 	int serfd = (int)args;
-	int i = 0;
+	//int i = 0;
 	unsigned char buf[HEART_BEAT_PDU_LEN];
 
 	pthread_detach(pthread_self());
 	HeartBeatPDU_t hbt = {HEART_BEAT_PDU_LEN,0,S_ZERO,};
 	build_HeartBeatPDU(&hbt, buf);
-	while(i++ < tests)	
+	int cnt = 0;
+	while(1)	
+	{
 		send(serfd, buf, HEART_BEAT_PDU_LEN,0);
+		cnt ++;
+		if(cnt > 200)
+			break;
+		sleep(1);
+	}
 
 	return NULL;	
 }
