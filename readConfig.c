@@ -1,3 +1,6 @@
+/** 所有配置信息
+ *  从配置文件读取配额信息
+ */
 #include <stdio.h>
 #include <syslog.h>
 #include <stdlib.h>
@@ -6,25 +9,37 @@
 #include "readConfig.h"
 #include "debug.h"
 
+#define IP_LEN 16
+#define DBDRIVER_LEN 128
+#define DBPARAMS_LEN 256
+#define LOG_IDENT_LNE 64
+
 /*读取配置文件 配置文件要放在/etc/nm_fremd.conf*/
 const char *config_file = "/etc/nm_fremd.conf";
 
-int MAX_THREADS = 100;
-unsigned short PORT = 12345;	  //监听端口
-unsigned int MAX_TCP_QUEUE = 5;   //listen 的参数
-char IPADDR[17];
+/*认证线程控制*/
+int MAX_THREADS = 100;			  
+
+/*监听端口*/
+unsigned short PORT = 12345;	 
+
+/*listen 的参数*/
+unsigned int MAX_TCP_QUEUE = 5;   
+
+/*监听IP*/
+char IPADDR[IP_LEN+1];				  
 
 /*是否成为守护进程*/
 int beDaemon = 1;
 
 /*日志配置*/
-char ident[64] = "nm_fremd";
+char ident[LOG_IDENT_LNE] = "nm_fremd";
 int option = LOG_CONS | LOG_PID;
 int facility = 0;
 
 /*数据库配置*/
-char dbdriver[128] = "mysql";			 /*数据库驱动程序名*/
-char dbparams[256] = "host=localhost;user=root;pass=123456;dbname=terminal";
+char dbdriver[DBDRIVER_LEN] = "mysql";			 /*数据库驱动程序名*/
+char dbparams[DBPARAMS_LEN] = "host=localhost;user=root;pass=123456;dbname=terminal";
 
 /*读取配置文件 配置文件要放在/etc/authServer.conf*/
 int set_config_value(char *name, char *value)
@@ -50,7 +65,7 @@ int set_config_value(char *name, char *value)
 		MAX_THREADS = atoi(value);
 	else
 	{
-		 printf("Unknown name and value: %s %s\n", name, value);
+		 DEBUGMSG(("Unknown name and value: %s %s\n", name, value));
 		 return -1;
 	}
 	return 0;
@@ -59,7 +74,7 @@ int set_config_value(char *name, char *value)
 /*读取配置文件
  * 成功返回0
  * 失败返回-1
- * 读取配置文件失败，最好退出服务器
+ * 读取配置文件失败，退出服务器
  * */
 int read_config()
 {
@@ -68,7 +83,7 @@ int read_config()
 	int t;
 	if(fp == NULL)
 	{
-		printf("读取配置文件失败！请把配置文件放在/etc/authServer.conf\n");
+		printf("读取配置文件失败！请把配置文件放在/etc/nm-fremd.conf\n");
 		return -1;
 	}
 
@@ -79,7 +94,7 @@ int read_config()
 		int i = 0;
 		if(line[len-1] != '\n')
 			while(fgetc(fp)!='\n');
-		//printf("%s", line);
+		DEBUGMSG(("%s", line));
 
 		/* 找到变量名的起点 */
 		for(i = 0; i < len; i++)
@@ -89,6 +104,7 @@ int read_config()
 			ns = &line[i];
 		else
 			continue;
+
 		/* 找到变量名的终点 */
 		for(i = i+1; i < len; i++)
 			if(line[i] == ' ' || line[i] == '\t' || line[i]=='\r' || line[i] == '\n')
@@ -97,6 +113,7 @@ int read_config()
 			 line[i] = '\0';
 		else
 			continue;
+
 		/* 找到变量值的起点 */
 		for(i = i+1; i < len; i++)
 			if(line[i] !=' ' && line[i]!= '\t' && line[i]!='\r' && line[i]!='\n')
@@ -105,6 +122,7 @@ int read_config()
 			vs = &line[i];
 		else
 			continue;
+
 		/* 找到变量值的终点 */
 		t = i;
 		for(i = len-1; i > t; i--)
@@ -122,6 +140,7 @@ int read_config()
 			continue;
 		if(*ns=='#')  //注释
 			continue;
+
 		/*把变量名变为的大写*/
 		p = ns;
 		while(*p != '\0')
@@ -130,11 +149,13 @@ int read_config()
 				*p -= 32;
 			p++;
 		}
+
 		DEBUGMSG(("config: name: %s \t value:%s\n", ns, vs));
 		if(set_config_value(ns, vs)==-1)
 			return -1;
 	}
-	printf("读取配置文件(%s)成功\n", config_file);
+
+	DEBUGMSG(("读取配置文件(%s)成功\n", config_file));
 	return 0;
 }
 

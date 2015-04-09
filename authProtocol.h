@@ -122,4 +122,5 @@ int parse_AccessInfo(AccessInfo_t *acci, const u_char *buf);
 
 /*生成接入信息*/
 int build_AccessInfo(const AccessInfo_t *acci, u_char *buf);
+
 #endif /* __AUTH_PROTOCOL__ */

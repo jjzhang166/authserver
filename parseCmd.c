@@ -1,3 +1,6 @@
+/**解析命令行参数
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -6,7 +9,8 @@
 #include "parseCmd.h"
 #include "readConfig.h"
 
-
+/** 帮助信息
+ */
 void usage()
 {
 	printf("Welcom to use authServer...\n");
@@ -20,6 +24,9 @@ void usage()
 	printf("\n");
 }
 
+/** 解析命令行参数
+ * 	argc, argv 对应main函数的argc argv
+ */
 void parse_cmd_line(int argc, char *argv[])
 {
 	int ch;

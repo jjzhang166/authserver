@@ -1,3 +1,13 @@
+/** 心跳功能
+ *  在TCP连接中，调用allocTcpStatus(...)函数得到
+ *  struct TcpStatus结构
+ *  因为要创建一个线程来定时检查心跳，而TCP连接也
+ *  可能断开，心跳也可能没有，所以，这两个线程谁
+ *  先退出不确定，而TcpStatus要到最后退出的那个线
+ *  程退出是才销毁，TcpStatus中的cnt变量被初始化
+ *  为2，线程退出是减1，为0时销毁。
+ *
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -75,7 +85,6 @@ void handle_heart_beat(struct TcpStatus *ts, u_char *buf)
 		return;
 	}
 	ts->timeStamp = time(NULL);
-	syslog(LOG_INFO, "一个心跳包!\n");
 	DEBUGMSG(("心跳包.\n"));
 	/* 如果下面的操作可能阻塞，创建一个线程去做吧, 在创建线程前sem_wait(&sem); */
 }

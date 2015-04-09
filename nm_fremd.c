@@ -1,3 +1,6 @@
+/** nm_fremd.c 主程序，初始化服务器
+ *  服务器采用多线程技术
+ */
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -11,6 +14,7 @@
 #include<sys/types.h>
 #include<sys/stat.h>
 #include <errno.h>
+
 #include<apu.h>
 #include<apr_pools.h>
 #include<apr_dbd.h>
@@ -20,24 +24,26 @@
 #include "readConfig.h"
 #include "debug.h"
 #include "heartBeat.h"
+
 /**多线程服务器说明：第个线程函数要主动调用
  * pthread_detach(pthread_self()); 函数
  */
 
-#define BUF_SIZE 64     		  //本程序涉及心跳包16B, 认证包20B，接入信息包34B
+#define BUF_SIZE 64     				//跳包16B, 认证包20B，接入信息包34B
 
-#define PIN_LEN 8      			  //PIN码8位
+#define PIN_LEN 8      					//PIN码8位
 
+sem_t sem;								//控制线程数
 
+int beStop = 0;  						//要停止服务器吗
 
-sem_t sem;								/*控制线程数*/	
+int dbd_check_pin(const char *pin);		 //检测pin 码的正确性 
 
-int beStop = 0;  						/*要停止服务器吗*/
+void *handle_tcp_thread(void *args); 	 //处理一个连接的线程函数
 
-int dbd_check_pin(const char *pin);		 /* 检测pin 码的正确性 */
-void *handle_tcp_thread(void *args); 	 /*处理一个连接的线程函数*/
-void *handle_session_thread(void *args); /*处理一个认证的线程， 一个连接上有多个认证*/
+void *handle_session_thread(void *args); //处理一个认证的线程 一个连接上有多个认证
 
+/* 注册信号处理ctrl-C */
 void sig_fun(int sig)
 {
 	beStop = 1;
@@ -65,7 +71,8 @@ void sig_fun(int sig)
 	exit(0);
 }
 
-/* 守护进程 */
+/** 守护进程
+*/
 void become_daemon()
 {
 	int i;
@@ -87,6 +94,8 @@ void become_daemon()
 		close(i);
 }
 
+/** 主函数，完成初始化
+*/
 int main(int argc, char *argv[])
 {
 	struct sockaddr_in seraddr;
@@ -97,14 +106,16 @@ int main(int argc, char *argv[])
 	/*read config file */
 	if(read_config() == -1)
 	{
-		printf("Read config file failed!\n");
+		DEBUGMSG(("Read config file failed!\n"));
 		exit(-1);
 	}
+
 	/* handle command lines */
 	parse_cmd_line(argc, argv);
 
 	/*打开日志*/
 	openlog(ident, option, facility<<3);
+
 	/* 守护进程 */
 	become_daemon();
 	
@@ -155,10 +166,12 @@ int main(int argc, char *argv[])
 	syslog(LOG_INFO, "认证服务器已经启动.\n");
 	if(!beDaemon)
 		printf("认证服务器已经启动!\n");
+
 	//6.开始接受TCP连接
 	while(!beStop)
 	{
 		pthread_t tid;
+
 		//接受一个连接
 		int clifd = accept(serfd, NULL, 0);
 		if(clifd < 0)
@@ -182,16 +195,21 @@ int main(int argc, char *argv[])
 
 struct session
 {
-	int clifd;  /*客户端socket*/
-	RequestPDU_t req;
-	pthread_mutex_t *writeMutex;
+	int clifd;  					//客户端socket
+	RequestPDU_t req;				//认证请求包
+	pthread_mutex_t *writeMutex;	//clifd在包级别的互斥锁
 };
 
-/* 处理认证请求 */
+/** 处理认证请求
+ * clifd: 客户端socket
+ * buf: 请求包
+ * writeMutex: clifd的写入锁
+ */
 void handle_request(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 {
 	pthread_t tid;
 	struct session * sess = (struct session*) malloc(sizeof(struct session));
+
 	if(sess == NULL)
 	{
 		syslog(LOG_ERR,"内存不足，malloc 失败，在handle_tcp_thread中\n");
@@ -207,6 +225,7 @@ void handle_request(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 	}
 	syslog(LOG_INFO, "一个认证请求包!\n");
 	sem_wait(&sem);
+
 	//创建一个线程处理这个连接	clifd 将在创建的线程中关闭
 	if(pthread_create(&tid, NULL, handle_session_thread, sess) != 0)
 	{
@@ -219,6 +238,8 @@ void handle_request(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 
 
 /* 处理接入信息
+ * clifd: 客户端socket
+ * buf:	  接入信息包缓冲区
  */
 void handle_access_info(int clifd, u_char *buf)
 {
@@ -231,6 +252,7 @@ void handle_access_info(int clifd, u_char *buf)
 	syslog(LOG_INFO,"一个接入信息包!\n");
 	/* 如果下面的操作可能阻塞，创建一个线程去做吧 sem_wait(&sem);*/
 }
+
 /* 处理一个TCP连接，args就是该连接的描述符
  * 处理之后关闭连接
  * 设置自己为分离线程
@@ -239,18 +261,22 @@ void handle_access_info(int clifd, u_char *buf)
  */
 void *handle_tcp_thread(void *args)
 {
-	int clifd = (int)args;
-	u_char buf[BUF_SIZE];
-	int curn = 0;
-	int sum = 0;
-	struct TcpStatus *ts;
+	int clifd = (int)args;	//得到客户端socket
+	u_char buf[BUF_SIZE];	//数据包缓冲区
+	int curn = 0;			//当前到数据长度
+	struct TcpStatus *ts;	//用于心跳
 	struct timeval timeout;
 	pthread_t tid;
+
 	//socket 在一个包的级别上要互斥
 	pthread_mutex_t socketWriteMutex = PTHREAD_MUTEX_INITIALIZER;	
+
 	//设置线程分离
 	pthread_detach(pthread_self());
+
+	//心跳信息
 	ts = allocTcpStatus();
+
 	//创建心跳监测线程
 	if(pthread_create(&tid, NULL, check_heart_beat_thread, ts) < 0)
 	{
@@ -258,13 +284,17 @@ void *handle_tcp_thread(void *args)
 		exit(-1);
 	} 	
 	DEBUGMSG(("创建心跳检测线程成功\n"));	
+
 	syslog(LOG_INFO, "频管已经连接!\n");
 	while(!beStop)
 	{	
 		MsgPDU_t msg;
+		
+		//设置recv超时
 		timeout.tv_sec = HEART_INTV;
 		timeout.tv_usec = 0;
 		setsockopt(clifd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
 		int n = recv(clifd, buf + curn, BUF_SIZE-curn, 0);
 		if(!ts->alive)
 		{
@@ -281,13 +311,15 @@ void *handle_tcp_thread(void *args)
 			DEBUGMSG(("recv%d bytes breaked\n", n));
 			break;
 		}
-		sum+=n;
 		curn += n;
 		
 		while(1)
 		{
+			//解析数据包头
 			if(parse_MsgPDU(&msg, buf, curn) != OPSUCCESS)
 				break;		/*这是因为curn<4*/
+			
+			//数据包出错
 			if(msg.Len > BUF_SIZE || msg.Len <= 0)
 			{
 				//curn = 0; /*信息长度大于缓冲，清除缓冲*/
@@ -297,12 +329,13 @@ void *handle_tcp_thread(void *args)
 				goto finish;
 				break;
 			}
+
+			//数据包还没完全接收	
 			if(curn < msg.Len)
-				break;	   /*数据包还没完全接收*/	
-			/*接受到一个完整的包*/
+				break;	   			//接收到一个完整的包
 			switch(msg.T)
 			{
-				case T_ZERO:		/*认证中 T总为0*/
+				case T_ZERO:		//认证中 T总为0
 					switch(msg.S)
 					{
 						case S_ZERO: //心跳
@@ -332,16 +365,18 @@ void *handle_tcp_thread(void *args)
 				default:
 						syslog(LOG_INFO,"包格式错误, 未定义的T域\n");
 			}//end switch
-			finish:	
+	finish:	
 			memmove(buf, buf+msg.Len, curn-msg.Len);
 			curn -= msg.Len;
 		}//end while
 	}
+
 	close(clifd);
 	destroyTcpStatus(ts);
 	pthread_mutex_destroy(&socketWriteMutex);
 	if(!beStop)
 		syslog(LOG_INFO, "频管已断开连接!\n");
+
 	return NULL;
 }
 
@@ -369,18 +404,21 @@ void *handle_session_thread(void *args)
 	rep.C	= req->C;
 	memcpy(rep.Pin, req->Pin, 8);
 
+	// 在数据库中查找
 	memcpy(pin, req->Pin, 8);
 	pin[8] = '\0';
 	if(dbd_check_pin(pin)==OPSUCCESS)
 	{
 		rep.V = V_SUCCESS;
-		//syslog(LOG_INFO,"在数据库中找到匹配的PIN\n");
+		DEBUGMSG(("在数据库中找到匹配的PIN\n"));
 	}
 	else
 	{	
 		rep.V = V_UNKNOWUSER;
-		//syslog(LOG_INFO, "没有在数据库中找到匹配的PIN\n");
+		DEBUGMSG(("没有在数据库中找到匹配的PIN\n"));
 	}
+	
+	//创建应答包
 	build_ReplyPDU(&rep, buf);
 	pthread_mutex_lock(sess->writeMutex);
 	remain = AUTH_PDU_LEN;
@@ -403,8 +441,10 @@ void *handle_session_thread(void *args)
 }
 
 /* 检测PIN 
- * 成功返回OPSUCCESS
- * 失败返回OPFAIL
+ * pin: ping码
+ * 返回值：
+ * 		成功返回OPSUCCESS
+ * 		失败返回OPFAIL
  */
 int dbd_check_pin(const char *pin)
 {	
@@ -419,18 +459,25 @@ int dbd_check_pin(const char *pin)
 	apr_pool_t *respool  = NULL;
 	apr_dbd_t *sql = NULL;
 	const apr_dbd_driver_t *driver = NULL;
+
+	//长度不正确，认证失败
 	if(strlen(pin) != PIN_LEN )
 		return OPFAIL;	
+
+	//构建查询语句
     strcat(statement,pin);
     strcat(statement,"'");
+	
+	//查询数据库
     rv = apr_pool_create(&respool, NULL);
 	if(rv != APR_SUCCESS)
 		goto finish;
     apr_dbd_init(respool);
     rv = apr_dbd_get_driver(respool, dbdriver, &driver);
-	switch (rv) {
+	switch (rv) 
+	{
        	case APR_SUCCESS:
-       		//printf("Loaded %s driver OK.\n", name);
+       		DEBUGMSG(("Loaded %s driver OK.\n", dbdriver));
           	break;
         case APR_EDSOOPEN:
            syslog(LOG_ERR,"Failed to load driver file apr_dbd_%s.so\n", dbdriver);
@@ -446,9 +493,10 @@ int dbd_check_pin(const char *pin)
            goto finish;
         }
 	rv = apr_dbd_open(driver, respool, dbparams, &sql);
-    switch (rv) {
+    switch (rv)
+	 {
         case APR_SUCCESS:
-           //printf("Opened %s[%s] OK\n", name, params);
+           DEBUGMSG(("Opened %s[%s] OK\n", dbdriver, dbparams));
            break;
         case APR_EGENERAL:
            syslog(LOG_ERR,"Failed to open %s[%s]\n", dbdriver, dbparams);
@@ -459,32 +507,37 @@ int dbd_check_pin(const char *pin)
         }
 
     rv = apr_dbd_select(driver,respool,sql,&res,statement,0);
-    if (rv) {
+    if (rv)
+	{
         syslog(LOG_ERR,"Select failed: %s", apr_dbd_error(driver, sql, rv));
         goto finish2;
     }
     for (rv = apr_dbd_get_row(driver, respool, res, &row, -1);
          rv == 0;
-         rv = apr_dbd_get_row(driver, respool, res, &row, -1)) {
+         rv = apr_dbd_get_row(driver, respool, res, &row, -1))
+	{
         //printf("ROW %d:	", i) ;
         ++i;
-        for (n = 0; n < apr_dbd_num_cols(driver, res); ++n) {
+        for (n = 0; n < apr_dbd_num_cols(driver, res); ++n)
+		{
             entry = apr_dbd_get_entry(driver, row, n);
-            if (entry == NULL) {
+            if (entry == NULL) 
+			{
                // printf("(null)	") ;
                ;
             }
-            else {
+            else 
+			{
                 //printf("%s	", entry);
                 ;
             }
         }
-	//fputs("\n", stdout);
     }
 	finish2:
 		apr_dbd_close(driver, sql);
 	finish: ;		
 		apr_pool_destroy(respool);
+
 	if(i>0)
 		return OPSUCCESS;
 	else

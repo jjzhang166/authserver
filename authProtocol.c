@@ -1,7 +1,10 @@
+/**	自定义协议解析包，生成包函数
+ */
+
 #include <memory.h>
 
 #include "authProtocol.h"
-
+#include "debug.h"
 
 /* 只解析 前三项，用于初始协议区分 */
 int parse_MsgPDU(MsgPDU_t *msg, u_char *buf, u_int  len)
