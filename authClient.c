@@ -1,5 +1,5 @@
-/*
- * 
+/*认证客户端，用来测试服务器
+ * 客户端仅用于测试
  *
  */
 
@@ -23,8 +23,8 @@ void *handle_reply_thread(void *args);
 void *do_heart_beat(void *args);
 void *do_access_info(void *args);
 
+//测试数，从main的参数中获得
 int tests = 0;
-
 
 int main(int argc, char *argv[])
 {
@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
 	seraddr.sin_port = htons(PORT);
 	seraddr.sin_addr.s_addr = inet_addr(serip);
 	bzero(seraddr.sin_zero, 8);
+
 	if(connect(fd, (struct sockaddr*)&seraddr, sizeof(struct sockaddr)) < 0)
 	{
 		printf("Connect failed!\n");
