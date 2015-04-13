@@ -13,7 +13,7 @@
  */
 void usage()
 {
-	printf("Welcom to use authServer...\n");
+	printf("Welcom to use nm_fremd Server...\n");
 	printf("-h print this usage.\n");
 	printf("-f don't become a daemon.\n");
 	printf("-i server's listen ip address.\n");

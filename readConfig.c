@@ -41,7 +41,7 @@ int facility = 0;
 char dbdriver[DBDRIVER_LEN] = "mysql";			 /*数据库驱动程序名*/
 char dbparams[DBPARAMS_LEN] = "host=localhost;user=root;pass=123456;dbname=terminal";
 
-/*读取配置文件 配置文件要放在/etc/authServer.conf*/
+/*读取配置文件 配置文件要放在/etc/nm_fremd.conf*/
 int set_config_value(char *name, char *value)
 {
 

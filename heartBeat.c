@@ -20,7 +20,11 @@
 #include "heartBeat.h"
 #include "debug.h"
 
-/*分配一个TcpStatus 结构 */
+/** 分配一个TcpStatus 结构 
+ *  注意，要两次调用destroyTcpStatus()才能销毁
+ *  return 成功返回struct TcpStatus 指针
+ *  	   失败返回NULL
+ * */
 struct TcpStatus *allocTcpStatus()
 {
 	struct TcpStatus *ts = (struct TcpStatus *)malloc(sizeof(struct TcpStatus));

@@ -113,7 +113,7 @@ void *do_heart_beat(void *args)
 	{
 		send(serfd, buf, HEART_BEAT_PDU_LEN,0);
 		cnt ++;
-		if(cnt > 200)
+		if(cnt > 30)
 			break;
 		sleep(1);
 	}

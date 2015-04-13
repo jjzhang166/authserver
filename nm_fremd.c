@@ -101,8 +101,6 @@ int main(int argc, char *argv[])
 	struct sockaddr_in seraddr;
 	int serfd;
 
-	printf( "认证服务器正在启动...\n");
-
 	/*read config file */
 	if(read_config() == -1)
 	{

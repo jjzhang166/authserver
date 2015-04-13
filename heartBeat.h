@@ -15,11 +15,14 @@ struct TcpStatus
 
 
 /** 分配一个初始化好的struct TcpStatus结构
+ *  注意，要两次调用destroyTcpStatus()才能销毁
+ *  return 成功返回struct TcpStatus 指针
  */
 struct TcpStatus *allocTcpStatus();
 
 /**  销毁一个TcpStatus 结构 
  *	ts: 要销毁的TcpStatus结构指针
+ *  注意，要两次调用destroyTcpStatus()才能销毁
  * */
 void destroyTcpStatus(struct TcpStatus *ts);
 
