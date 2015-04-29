@@ -38,6 +38,10 @@ int option = LOG_CONS | LOG_PID;
 int facility = 0;
 const int allFacilities[] = {LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3,
 							 LOG_LOCAL4, LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7};
+
+/*HEART_BETAT*/
+int heart_beat_itv = 5000;
+int check_heart_beat_itv = 10000;
 /*数据库配置*/
 char dbdriver[DBDRIVER_LEN] = "mysql";			 /*数据库驱动程序名*/
 char dbparams[DBPARAMS_LEN] = "host=localhost;user=root;pass=123456;dbname=terminal";
@@ -74,6 +78,26 @@ int set_config_value(char *name, char *value)
 			beDaemon = atoi(value);
 	else if(strcmp(name, "MAXTHREADS") == 0)
 		MAX_THREADS = atoi(value);
+	else if(strcmp(name, "HEART_BEAT_ITV") == 0)
+	{
+		heart_beat_itv = atoi(value);
+		if(heart_beat_itv <= 0)
+		{
+			printf("HeatBeatItv error\n");
+			DEBUGMSG(("Heart beat itv %d\n", heart_beat_itv));
+			return -1;
+		}
+	}
+	else if(strcmp(name, "CHECK_HEART_BEAT_ITV") == 0)
+	{
+		check_heart_beat_itv = atoi(value);
+		if(check_heart_beat_itv <= 0)
+		{
+			printf("HeatBeatItv error\n");
+			DEBUGMSG(("check eart beat itv %d\n", check_heart_beat_itv));
+			return -1;
+		}
+	}
 	else
 	{
 		 DEBUGMSG(("Unknown name and value: %s %s\n", name, value));
