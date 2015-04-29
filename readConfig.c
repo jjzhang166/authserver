@@ -36,7 +36,8 @@ int beDaemon = 1;
 char ident[LOG_IDENT_LNE] = "nm_fremd";
 int option = LOG_CONS | LOG_PID;
 int facility = 0;
-
+const int allFacilities[] = {LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3,
+							 LOG_LOCAL4, LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7};
 /*数据库配置*/
 char dbdriver[DBDRIVER_LEN] = "mysql";			 /*数据库驱动程序名*/
 char dbparams[DBPARAMS_LEN] = "host=localhost;user=root;pass=123456;dbname=terminal";
@@ -54,7 +55,17 @@ int set_config_value(char *name, char *value)
 	else if(strcmp(name, "LOGIDENT") == 0)
 			strncpy(ident, value, 64);
 	else if(strcmp(name, "FACILITY") == 0)
-			facility = atoi(value);
+		{
+			int k = atoi(value);
+			if(k>=0 && k<=7)
+				facility = allFacilities[k];
+			else
+			{
+				printf("configfile: facility error!\n");
+				return -1;
+			}
+
+		}
 	else if(strcmp(name, "DBDRIVER") == 0)
 			strncpy(dbdriver, value, 256);
 	else if(strcmp(name, "DBPARAMS") == 0)

@@ -14,4 +14,4 @@ install:
 	cp $(target) /usr/local/bin
 	cp $(target).conf /etc/
 clean:
-	rm -rf $(OBJS) $(target) authClient authClient.o
+	rm -rf $(OBJS) $(target) authClient authClient.o *.o
