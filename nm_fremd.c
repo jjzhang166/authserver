@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 	parse_cmd_line(argc, argv);
 
 	/*打开日志*/
-	openlog(ident, option, facility<<3);
+	openlog(ident, option, facility);
 
 	/* 守护进程 */
 	become_daemon();
