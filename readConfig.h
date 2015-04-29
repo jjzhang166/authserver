@@ -20,7 +20,9 @@ extern int facility;
 extern char dbdriver[128];			//数据库驱动程序名
 extern char dbparams[256];			//数据库URL
 
-
+/*HEART BEAT INTERVAL*/
+extern int heart_beat_itv;
+extern int check_heart_beat_itv;
 /*读取配置文件 配置文件要放在/etc/nm_fremd.conf*/
 int set_config_value(char *name, char *value);
 

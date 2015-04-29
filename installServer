@@ -1,4 +1,9 @@
 #!/bin/bash
+#add a test to sqlserver
+read -p "please input mysql's username:" username
+read -p "please input mysql's password:" password
+mysql -u$username -p$password < test.sql
+
 tar -xvf apr-1.5.1.tar.gz
 tar -xvf apr-util-1.5.4.tar.gz
 #configure make and install apr

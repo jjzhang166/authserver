@@ -64,9 +64,9 @@ void * check_heart_beat_thread(void *arg)
 	pthread_detach(pthread_self());
 	while(!beStop)
 	{
-		sleep(HEART_CHECK_INTV);
+		sleep(check_heart_beat_itv);
 		DEBUGMSG(("检测心跳.\n"));
-		if(time(NULL) - ts->timeStamp > HEART_INTV)
+		if(time(NULL) - ts->timeStamp > heart_beat_itv)
 		{
 			ts->alive = 0;
 			syslog(LOG_ERR, "No heart beat!\n");
