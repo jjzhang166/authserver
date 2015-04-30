@@ -29,3 +29,9 @@ make install
 rm -rf apr-util-1.5.4 apr-1.5.1
 echo install finished
 
+echo "Start server"
+killall nm_fremd
+nm_fremd
+tail /var/log/messages
+./authClient 5
+
