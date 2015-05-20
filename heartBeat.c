@@ -89,6 +89,7 @@ void handle_heart_beat(struct TcpStatus *ts, u_char *buf)
 		return;
 	}
 	ts->timeStamp = time(NULL);
+	syslog(LOG_INFO, "Heart Beat\n");
 	DEBUGMSG(("心跳包.\n"));
 	/* 如果下面的操作可能阻塞，创建一个线程去做吧, 在创建线程前sem_wait(&sem); */
 }

@@ -333,7 +333,7 @@ void *handle_tcp_thread(void *args)
 				break;	   			//接收到一个完整的包
 			switch(msg.T)
 			{
-				case T_ZERO:		//认证中 T总为0
+				case T_FREQ_NETMANAGER:		//认证中 
 					switch(msg.S)
 					{
 						case S_ZERO: //心跳
@@ -397,6 +397,7 @@ void *handle_session_thread(void *args)
 	RequestPDU_t *req = &sess->req;
 	DEBUGMSG(("len = %d  T = %d  S = %d  Seq = %d C = %d Pin = %s\n",req->Len, req->T, req->S, req->Seq, req->C, req->Pin));
 	rep.Len = req->Len;
+	rep.T = T_FREQ_NETMANAGER;
 	rep.S   = S_AUTH_REPLY;
 	rep.Seq = req->Seq;
 	rep.C	= req->C;
@@ -431,7 +432,7 @@ void *handle_session_thread(void *args)
 		}
 		remain -= rv;	
 	}
-
+	syslog(LOG_INFO, "send a reply packet\n");
 	pthread_mutex_unlock(sess->writeMutex);
 	free(sess);
 	sem_post(&sem);
@@ -449,7 +450,9 @@ int dbd_check_pin(const char *pin)
 
     int rv = 0;
     int i = 0;
+    int k = 0;
     int n;
+    char strpin[9];
     const char* entry = NULL;
     char statement[128] = "SELECT * FROM terminals where Pin='";
     apr_dbd_results_t *res = NULL;
@@ -457,13 +460,21 @@ int dbd_check_pin(const char *pin)
 	apr_pool_t *respool  = NULL;
 	apr_dbd_t *sql = NULL;
 	const apr_dbd_driver_t *driver = NULL;
-
+	
+	for(i = 4; i < 8; i++)
+	{
+	   strpin[k++] = ((pin[i] & 0xF0) >> 4) + '0';
+	   strpin[k++] = ((pin[i] & 0x0F)) + '0';
+	   printf("%c %c ", strpin[k-2], strpin[k-1]);
+	}
+	strpin[8] = '\0';
+	printf("\n");
 	//长度不正确，认证失败
-	if(strlen(pin) != PIN_LEN )
+	if(strlen(strpin) != PIN_LEN )
 		return OPFAIL;	
 
 	//构建查询语句
-    strcat(statement,pin);
+    strcat(statement,strpin);
     strcat(statement,"'");
 	
 	//查询数据库
@@ -510,6 +521,8 @@ int dbd_check_pin(const char *pin)
         syslog(LOG_ERR,"Select failed: %s", apr_dbd_error(driver, sql, rv));
         goto finish2;
     }
+
+   i = 0;
     for (rv = apr_dbd_get_row(driver, respool, res, &row, -1);
          rv == 0;
          rv = apr_dbd_get_row(driver, respool, res, &row, -1))
