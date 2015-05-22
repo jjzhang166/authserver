@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include "authProtocol.h"
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -15,6 +15,7 @@
 #include <time.h>
 #include <stdlib.h>
 
+#include "auth_protocol.h"
 #define BUF_SIZE 64
 #define PORT 3002
 char*  serip = "127.0.0.1";

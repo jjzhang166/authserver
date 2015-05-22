@@ -3,7 +3,7 @@
 
 #include <memory.h>
 
-#include "authProtocol.h"
+#include "auth_protocol.h"
 #include "debug.h"
 
 

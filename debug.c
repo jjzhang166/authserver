@@ -1,11 +1,11 @@
 /** 调试信息打印函数
  */
 
-#include<stdio.h>
-#include<stdarg.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
-#include"debug.h"
+#include "debug.h"
 
 /* 打印信息到stdout 
  * 使用方法与printf一样，一般

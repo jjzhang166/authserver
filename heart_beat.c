@@ -15,9 +15,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "authProtocol.h"
-#include "readConfig.h"
-#include "heartBeat.h"
+#include "auth_protocol.h"
+#include "read_config.h"
+#include "heart_beat.h"
 #include "debug.h"
 
 /** 分配一个TcpStatus 结构 
@@ -65,6 +65,8 @@ void * check_heart_beat_thread(void *arg)
 	while(!beStop && ts->alive)
 	{
 		sleep(check_heart_beat_itv);
+		if(ts->alive == 0)
+			break;
 		DEBUGMSG(("检测心跳.\n"));
 		if(time(NULL) - ts->timeStamp > heart_beat_itv)
 		{
@@ -89,7 +91,6 @@ void handle_heart_beat(struct TcpStatus *ts, u_char *buf)
 		return;
 	}
 	ts->timeStamp = time(NULL);
-	syslog(LOG_INFO, "Heart Beat\n");
 	DEBUGMSG(("心跳包.\n"));
 	/* 如果下面的操作可能阻塞，创建一个线程去做吧, 在创建线程前sem_wait(&sem); */
 }

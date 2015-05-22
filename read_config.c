@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "readConfig.h"
+#include "read_config.h"
 #include "debug.h"
 
 #define IP_LEN 16

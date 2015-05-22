@@ -6,8 +6,8 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "parseCmd.h"
-#include "readConfig.h"
+#include "parse_cmd.h"
+#include "read_config.h"
 
 /** 帮助信息
  */

@@ -1,5 +1,5 @@
-#ifndef __HEARTBEAT_H__
-#define __HEARTBEAT_H__
+#ifndef __HEART_BEAT_H__
+#define __HEART_BEAT_H__
 
 //心跳间隔和检测心跳的间隔
 #define HEART_CHECK_INTV 4

@@ -1,5 +1,5 @@
-#ifndef __READCONFIG_H__
-#define __READCONFIG_H__
+#ifndef __READ_CONFIG_H__
+#define __READ_CONFIG_H__
 
 extern int beStop; 					//要停止服务器吗
 extern const char *config_file;	  	//配置文件

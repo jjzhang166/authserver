@@ -1,5 +1,5 @@
-#ifndef __PARSECMD_H__
-#define __PARSECMD_H__
+#ifndef __PARSE_CMD_H__
+#define __PARSE_CMD_H__
 
 /** 解析命令行参数
  *  argc argv就是传给main函数的那两个参数
