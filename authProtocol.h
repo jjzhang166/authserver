@@ -32,6 +32,11 @@ typedef unsigned short u_short;
 #define V_UNKNOWUSER	0x01
 #define V_UNMATCH		0x02
 
+/*接入信息表OP字段*/
+#define OP_ADD 			0x00
+#define OP_UPDATE 		0x01
+#define OP_DEL			0x02
+
 /*在authProtocol.c中，返回操作结果统一使用：*/
 #define OPSUCCESS		0
 #define OPFAIL			-1
@@ -53,7 +58,7 @@ typedef struct RequestPDU
 	u_char S;		/* S_AUTH_REQUEST */
 	u_char Seq;		/* 认证序号 */
 	u_char C;
-	char Pin[8];	/* PIN 码	*/
+	char Pin[9];	/* PIN 码8位+''0'	*/
 	char Reserve[4];/* 保留 	*/
 }RequestPDU_t;
 
@@ -65,7 +70,7 @@ typedef struct ReplyPDU
 	u_char Seq;		/* 认证序号 	 */
 	u_char C;		/* 属性 		 */
 	u_char V;		/* 认证结果 	 */
-	char Pin[8];	/* PIN 码 		 */
+	char Pin[9];	/* PIN 码8位+'\0' */
 	char Reserve[3];/*保留 			 */
 }ReplyPDU_t;
 
@@ -77,12 +82,11 @@ typedef struct AccessInfo
 	u_char T;			/*T_ZERO*/
 	u_char S;			/*S_ACCESS_INFO */
 	u_char OpType;		/*操作类型 */
-	u_char AR;			/*短波移动终端区号*/
-	u_short MN;			/*短波移动终端号码*/
+	char PIN[9];
 	u_char FREQ;		/*业务信道号*/
 	u_char SNR;			/*链路质量 */
 	char Reserve[6];		/*保留*/
-	char BS_IP[16];		/*基站设备IP*/
+	char BS_IP[17];		/*基站设备IP*/
 }AccessInfo_t;
 
 /* 心跳 */

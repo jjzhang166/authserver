@@ -234,21 +234,88 @@ void handle_request(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 }
 
 
+struct access_info_session
+{
+	int clifd;
+	AccessInfo_t accInfo;				//认证请求包
+	pthread_mutex_t *writeMutex;	//clifd在包级别的互斥锁
+};
 
+int do_dbd_query(const char *sqlcmd);
+
+void * handle_access_info_thread(void *args)
+{
+	char sqlcmd[512];
+	int rv;
+	struct access_info_session * ais = (struct access_info_session *)args;
+	AccessInfo_t *accInfo = &ais->accInfo;
+
+	//设置线程分离
+	pthread_detach(pthread_self());
+	if(ais == NULL)
+	{
+		DEBUGMSG(( " Bad args, args must not null in handle_access_info_thread\n"));
+		goto finish;
+	}
+	switch(accInfo->OpType)
+	{
+		case OP_ADD:
+		{
+			snprintf(sqlcmd, 512, "insert into frem_access_info(PIN, FREQ, SNR, BS_IP) values('%s', '%d', '%d', '%s')", 
+							accInfo->PIN, accInfo->FREQ, accInfo->SNR, accInfo->BS_IP);	
+			rv = do_dbd_query(sqlcmd);
+			if(rv !=1)
+				syslog(LOG_ERR, "Insert into frem_access_info failed.\n");
+			break;
+		}
+		case OP_UPDATE:
+		{
+			break;
+		}
+		case OP_DEL:
+		{
+			break;
+		}
+		default:
+		{
+			syslog(LOG_ERR, "Bad OpType in access info packet\n");
+		}
+	}
+	free(ais);
+finish:
+	sem_post(&sem);
+	return NULL;
+}
 /* 处理接入信息
  * clifd: 客户端socket
  * buf:	  接入信息包缓冲区
  */
-void handle_access_info(int clifd, u_char *buf)
+void handle_access_info(int clifd, u_char *buf, pthread_mutex_t *writeMutex)
 {
-	AccessInfo_t acci;
-	if(parse_AccessInfo(&acci, buf) != OPSUCCESS)
+	pthread_t tid;
+	struct access_info_session * ais = (struct access_info_session *) malloc(sizeof(struct access_info_session));
+	if(ais == NULL)
+	{
+		DEBUGMSG(( "malloc failed in handle access info()\n"));
+		return;
+	}
+	ais->clifd = clifd;
+	ais->writeMutex = writeMutex;
+	if(parse_AccessInfo(&ais->accInfo, buf) != OPSUCCESS)
 	{
 		syslog(LOG_INFO, "一个错误的接入信息包!\n");
 		return;
 	}
 	syslog(LOG_INFO,"一个接入信息包!\n");
-	/* 如果下面的操作可能阻塞，创建一个线程去做吧 sem_wait(&sem);*/
+
+	//创建一个线程处理这个连接	clifd 将在创建的线程中关闭
+	sem_wait(&sem);
+	if(pthread_create(&tid, NULL, handle_access_info_thread, ais) != 0)
+	{
+		syslog(LOG_ERR, "Create handle session thread failed!\n");
+		close(clifd);
+		free(ais);
+	}/* 如果下面的操作可能阻塞，创建一个线程去做吧 sem_wait(&sem);*/
 }
 
 /* 处理一个TCP连接，args就是该连接的描述符
@@ -352,7 +419,7 @@ void *handle_tcp_thread(void *args)
 							break;
 						case S_ACCESS_INFO:	//接入信息
 						{
-							handle_access_info(clifd, buf);
+							handle_access_info(clifd, buf, &socketWriteMutex);
 							break;
 						}
 						default:
@@ -384,7 +451,6 @@ void *handle_tcp_thread(void *args)
  */
 void *handle_session_thread(void *args)
 {
-	char pin[9];
 	unsigned char buf[AUTH_PDU_LEN];
 	int rv;
 	int remain;
@@ -404,9 +470,7 @@ void *handle_session_thread(void *args)
 	memcpy(rep.Pin, req->Pin, 8);
 
 	// 在数据库中查找
-	memcpy(pin, req->Pin, 8);
-	pin[8] = '\0';
-	if(dbd_check_pin(pin)==OPSUCCESS)
+	if(dbd_check_pin(req->Pin)==OPSUCCESS)
 	{
 		rep.V = V_SUCCESS;
 		DEBUGMSG(("在数据库中找到匹配的PIN\n"));
@@ -439,20 +503,19 @@ void *handle_session_thread(void *args)
 	return NULL;
 }
 
+
 /* 检测PIN 
  * pin: ping码
  * 返回值：
  * 		成功返回OPSUCCESS
  * 		失败返回OPFAIL
  */
-int dbd_check_pin(const char *pin)
+int dbd_check_pin(const char *strpin)
 {	
 
     int rv = 0;
     int i = 0;
-    int k = 0;
     int n;
-    char strpin[9];
     const char* entry = NULL;
     char statement[128] = "SELECT * FROM terminals where Pin='";
     apr_dbd_results_t *res = NULL;
@@ -460,15 +523,6 @@ int dbd_check_pin(const char *pin)
 	apr_pool_t *respool  = NULL;
 	apr_dbd_t *sql = NULL;
 	const apr_dbd_driver_t *driver = NULL;
-	
-	for(i = 4; i < 8; i++)
-	{
-	   strpin[k++] = ((pin[i] & 0xF0) >> 4) + '0';
-	   strpin[k++] = ((pin[i] & 0x0F)) + '0';
-	   printf("%c %c ", strpin[k-2], strpin[k-1]);
-	}
-	strpin[8] = '\0';
-	printf("\n");
 	//长度不正确，认证失败
 	if(strlen(strpin) != PIN_LEN )
 		return OPFAIL;	
@@ -556,4 +610,75 @@ int dbd_check_pin(const char *pin)
 }
 
 
+/**做SQL insert update delete
+ * sqlcmd	要执行的SQL命令
+ * 返回:    受影响的行数
+ *
+ */
+int do_dbd_query(const char *sqlcmd)
+{	
 
+    int rv = 0;
+	int nrows;
+    //apr_dbd_results_t *res = NULL;
+	apr_pool_t *respool  = NULL;
+	apr_dbd_t *sql = NULL;
+	const apr_dbd_driver_t *driver = NULL;
+
+	
+	//查询数据库
+    rv = apr_pool_create(&respool, NULL);
+	if(rv != APR_SUCCESS)
+		goto finish;
+    apr_dbd_init(respool);
+    rv = apr_dbd_get_driver(respool, dbdriver, &driver);
+	switch (rv) 
+	{
+       	case APR_SUCCESS:
+       		DEBUGMSG(("Loaded %s driver OK.\n", dbdriver));
+          	break;
+        case APR_EDSOOPEN:
+           syslog(LOG_ERR,"Failed to load driver file apr_dbd_%s.so\n", dbdriver);
+           goto finish;
+        case APR_ESYMNOTFOUND:
+           syslog(LOG_ERR,"Failed to load driver apr_dbd_%s_driver.\n", dbdriver);
+           goto finish;
+        case APR_ENOTIMPL:
+           syslog(LOG_ERR,"No driver available for %s.\n", dbdriver);
+           goto finish;
+        default:        /* it's a bug if none of the above happen */
+           syslog(LOG_ERR,"Internal error loading %s.\n", dbdriver);
+           goto finish;
+        }
+	rv = apr_dbd_open(driver, respool, dbparams, &sql);
+    switch (rv)
+	 {
+        case APR_SUCCESS:
+           DEBUGMSG(("Opened %s[%s] OK\n", dbdriver, dbparams));
+           break;
+        case APR_EGENERAL:
+           syslog(LOG_ERR,"Failed to open %s[%s]\n", dbdriver, dbparams);
+           goto finish;
+        default:        /* it's a bug if none of the above happen */
+           syslog(LOG_ERR,"Internal error opening %s[%s]\n", dbdriver, dbparams);
+           goto finish;
+        }
+
+    rv = apr_dbd_query(driver, sql, &nrows, sqlcmd);
+    if (rv)
+	{
+        syslog(LOG_ERR,"Query failed: %s", apr_dbd_error(driver, sql, rv));
+        goto finish2;
+    }
+
+   finish2:
+		apr_dbd_close(driver, sql);
+	finish: ;		
+		apr_pool_destroy(respool);
+
+	/*if(rv == 0)
+		return OPSUCCESS;
+	else
+		return OPFAIL;*/
+	return nrows;
+}

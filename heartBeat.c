@@ -62,7 +62,7 @@ void * check_heart_beat_thread(void *arg)
 {
 	struct TcpStatus *ts = (struct TcpStatus *)arg;
 	pthread_detach(pthread_self());
-	while(!beStop)
+	while(!beStop && ts->alive)
 	{
 		sleep(check_heart_beat_itv);
 		DEBUGMSG(("检测心跳.\n"));

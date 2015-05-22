@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 #define BUF_SIZE 64
-#define PORT 12345
+#define PORT 3002
 char*  serip = "127.0.0.1";
 
 void *handle_reply_thread(void *args);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	int i = 0;
 	while(i++<tests)
 	{
-		RequestPDU_t req = {20, T_ZERO, S_AUTH_REQUEST,(u_char)i, C_MOBILE_STATION, "12345678"};
+		RequestPDU_t req = {20, T_FREQ_NETMANAGER, S_AUTH_REQUEST,(u_char)i, C_MOBILE_STATION, "00009001"};
 		printf("len=%d T=%d pin=%s\n",req.Len, req.T,  req.Pin);
 		unsigned char buf[AUTH_PDU_LEN];
 		build_RequestPDU(&req, buf);
@@ -86,11 +86,11 @@ int main(int argc, char *argv[])
 		req.S = S_AUTH_FINISH;
 		build_RequestPDU(&req, buf);
 		send(fd, buf, AUTH_PDU_LEN,0);
-		unsigned char *buf2 = malloc(AUTH_PDU_LEN);
+		/*unsigned char *buf2 = malloc(AUTH_PDU_LEN);
 		//for(i = 0; i < AUTH_PDU_LEN; i++)
 			//buf2[0] = 45;	
 		send(fd, buf2, AUTH_PDU_LEN,0);
-		free(buf2);
+		free(buf2);*/
 		//usleep(10000);
 	}
 	sleep(1000);
@@ -103,10 +103,10 @@ void *do_heart_beat(void *args)
 {
 	int serfd = (int)args;
 	//int i = 0;
-	unsigned char buf[HEART_BEAT_PDU_LEN];
+	unsigned char buf[HEART_BEAT_PDU_LEN];// = {HEART_BEAT_PDU_LEN, 0,0,0, T_FREQ_NETMANAGER, 0};
 
 	pthread_detach(pthread_self());
-	HeartBeatPDU_t hbt = {HEART_BEAT_PDU_LEN,0,S_ZERO,};
+	HeartBeatPDU_t hbt = {HEART_BEAT_PDU_LEN,T_FREQ_NETMANAGER,S_ZERO};
 	build_HeartBeatPDU(&hbt, buf);
 	int cnt = 0;
 	while(1)	
@@ -128,7 +128,13 @@ void *do_access_info(void *args)
 	int i = 0;
 	unsigned char buf[ACCINFO_PDU_LEN];
 
-	AccessInfo_t acci = {ACCINFO_PDU_LEN,0,S_ACCESS_INFO,1,2,3,4,5,"aaa","192.168.1.1"};
+	AccessInfo_t acci = {ACCINFO_PDU_LEN, T_FREQ_NETMANAGER, S_ACCESS_INFO, OP_ADD};
+	acci.FREQ = 123;
+	acci.SNR = 255;
+	memcpy(&acci.PIN, "00009001", 9);
+	memcpy(&acci.BS_IP, "198.168.111.222", 16);
+// = {ACCINFO_PDU_LEN,0,S_ACCESS_INFO,1,2,3,4,5,"aaa","192.168.1.1"};
+	
 	pthread_detach(pthread_self());
 	build_AccessInfo(&acci, buf);
 	while(i++ < tests)	
@@ -174,7 +180,7 @@ void *handle_reply_thread(void *args)
 			/*接受到一个完整的包*/
 			switch(msg.T)
 			{
-				case T_ZERO:		/*认证中 T总为0*/
+				case T_FREQ_NETMANAGER:		/*认证中 T总为0*/
 					switch(msg.S)
 					{
 						case S_AUTH_REPLY:
