@@ -39,7 +39,7 @@ int dbd_check_pin(const char *strpin)
     int i = 0;
     int n;
     const char* entry = NULL;
-    char statement[128] = "SELECT * FROM terminals where Pin='";
+    char statement[128] = "SELECT * FROM terminals where PIN='";
     apr_dbd_results_t *res = NULL;
     apr_dbd_row_t *row = NULL;
     apr_pool_t *respool  = NULL;

@@ -70,7 +70,7 @@ void * handle_access_info_thread(void *args)
 	{
 		case OP_ADD:	//增加
 		{
-			snprintf(sqlcmd, 512, "insert into frem_access_info(PIN, FREQ, SNR, BS_IP) values('%s', '%d', '%d', '%s')", 
+			snprintf(sqlcmd, 512, "insert into frem_access_info(PIN, FREQ, SNR, BS_IP) values('%s', '%u', '%u', '%s')", 
 							accInfo->PIN, accInfo->FREQ, accInfo->SNR, accInfo->BS_IP);	
 			rv = do_dbd_query(sqlcmd);
 			if(rv !=1)
@@ -79,10 +79,21 @@ void * handle_access_info_thread(void *args)
 		}
 		case OP_UPDATE:	//更新
 		{
+			snprintf(sqlcmd, 512, "update frem_access_info set FREQ='%u', SNR = '%u', BS_IP='%s' where PIN='%s'", 
+							accInfo->FREQ, accInfo->SNR, accInfo->BS_IP, accInfo->PIN );	
+			rv = do_dbd_query(sqlcmd);
+			if(rv !=1)
+				syslog(LOG_ERR, "Insert into frem_access_info failed.\n");
+
 			break;
 		}
 		case OP_DEL:	//删除
 		{
+			snprintf(sqlcmd, 512, "delete from  frem_access_info where PIN='%s'", accInfo->PIN);	
+			rv = do_dbd_query(sqlcmd);
+			if(rv !=1)
+				syslog(LOG_ERR, "delete from  frem_access_info failed.\n");
+
 			break;
 		}
 		default:

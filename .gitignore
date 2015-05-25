@@ -1,6 +1,6 @@
 *.[oa]
 nm_fremd
-authClient
+auth_client
 tags
 apr-1.5.1.tar.gz
 apr-util-1.5.4.tar.gz

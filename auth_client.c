@@ -126,7 +126,7 @@ void *do_heart_beat(void *args)
 void *do_access_info(void *args)
 {
 	int serfd = (int)args;
-	int i = 0;
+	//int i = 0;
 	unsigned char buf[ACCINFO_PDU_LEN];
 
 	AccessInfo_t acci = {ACCINFO_PDU_LEN, T_FREQ_NETMANAGER, S_ACCESS_INFO, OP_ADD};
@@ -138,9 +138,16 @@ void *do_access_info(void *args)
 	
 	pthread_detach(pthread_self());
 	build_AccessInfo(&acci, buf);
-	while(i++ < tests)	
+	//while(i++ < tests)	
 		send(serfd, buf, ACCINFO_PDU_LEN,0);
 
+	/*acci.OpType = OP_DEL;
+	acci.BS_IP[1] = '7';
+	acci.FREQ=251;
+	acci.SNR=250;
+	build_AccessInfo(&acci, buf);
+	send(serfd, buf, ACCINFO_PDU_LEN,0);
+*/
 	return NULL;	
 }
 

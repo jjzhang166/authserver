@@ -8,7 +8,7 @@ all:$(target) auth_client
 $(target):$(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $(target)
 auth_client:auth_protocol.o auth_client.o
-	$(CC) $(CFLAGS) auth_protocol.o auth_client.o $(LIBS) -o authClient
+	$(CC) $(CFLAGS) auth_protocol.o auth_client.o $(LIBS) -o $@
 %.o:%.c
 	$(CC) -c $(CFLAGS) $< -o $@
 install:
