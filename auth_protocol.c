@@ -99,7 +99,8 @@ int build_ReplyPDU(const ReplyPDU_t *rep, u_char *buf)
 	buf[7] = rep->C;
 	buf[8] = rep->V;
 
-	str2bcd(rep->Pin, buf+9);
+	memset(buf+9, 0, 4);
+	str2bcd(rep->Pin, buf+9+4);
 
 	memcpy(buf+17, rep->Reserve, 3);
 	return OPSUCCESS;
