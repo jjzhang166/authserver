@@ -86,7 +86,11 @@ void *handle_session_thread(void *args)
 	}
 	else
 	{	
+		char sql[256];
+		snprintf(sql, 256, "insert into terminals_illegal(pin, name, descr) values('%s','%s','%s')", req->Pin, "unknow user","非法用户");
 		rep.V = V_UNKNOWUSER;
+		if(do_dbd_query(sql)==0)
+			syslog(LOG_INFO, "insert into terminals_illegal failed!\n");
 		DEBUGMSG(("没有在数据库中找到匹配的PIN\n"));
 	}
 	

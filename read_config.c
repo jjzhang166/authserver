@@ -15,7 +15,7 @@
 #define LOG_IDENT_LNE 64
 
 /*读取配置文件 配置文件要放在/etc/nm_fremd.conf*/
-const char *config_file = "/etc/nm_fremd.conf";
+const char *config_file = "/opt/net-mgmt/nm_fremd/nm_fremd.conf";
 
 /*认证线程控制*/
 int MAX_THREADS = 100;			  

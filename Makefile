@@ -12,7 +12,8 @@ auth_client:auth_protocol.o auth_client.o
 %.o:%.c
 	$(CC) -c $(CFLAGS) $< -o $@
 install:
-	cp $(target) /usr/local/bin
-	cp $(target).conf /etc/
+	mkdir -p /opt/net-mgmt/nm_fremd
+	cp $(target) /opt/net-mgmt/nm_fremd
+	cp $(target).conf /opt/net-mgmt/nm_fremd/nm_fremd.conf
 clean:
 	rm -rf $(OBJS) $(target) authClient authClient.o *.o

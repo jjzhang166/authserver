@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 	int i = 0;
 	while(i++<tests)
 	{
-		RequestPDU_t req = {20, T_FREQ_NETMANAGER, S_AUTH_REQUEST,(u_char)i, C_MOBILE_STATION, "00009001"};
+		RequestPDU_t req = {20, T_FREQ_NETMANAGER, S_AUTH_REQUEST,(u_char)i, C_MOBILE_STATION, "00009004"};
 		printf("len=%d T=%d pin=%s\n",req.Len, req.T,  req.Pin);
 		unsigned char buf[AUTH_PDU_LEN];
 		build_RequestPDU(&req, buf);
